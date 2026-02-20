@@ -129,11 +129,25 @@ function installQuestions() {
 	echo ""
 
 	# Detect public IPv4 or IPv6 address and pre-fill for the user
-	SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
+	# Try to get public IP from external services
+	SERVER_PUB_IP=$(curl -4s https://ifconfig.co 2>/dev/null || curl -4s https://icanhazip.com 2>/dev/null || curl -4s https://api.ipify.org 2>/dev/null)
+	
+	# If external IP detection fails, fall back to local IP detection
 	if [[ -z ${SERVER_PUB_IP} ]]; then
-		# Detect public IPv6 address
-		SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+		SERVER_PUB_IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
 	fi
+	
+	# If still no IPv4, try IPv6
+	if [[ -z ${SERVER_PUB_IP} ]]; then
+		# Try to get public IPv6 from external services
+		SERVER_PUB_IP=$(curl -6s https://ifconfig.co 2>/dev/null || curl -6s https://icanhazip.com 2>/dev/null)
+		
+		# If external IPv6 detection fails, fall back to local IPv6 detection
+		if [[ -z ${SERVER_PUB_IP} ]]; then
+			SERVER_PUB_IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+		fi
+	fi
+	
 	read -rp "IPv4 or IPv6 public address: " -e -i "${SERVER_PUB_IP}" SERVER_PUB_IP
 
 	# Detect public interface and pre-fill for the user
